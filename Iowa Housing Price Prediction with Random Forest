@@ -1,0 +1,44 @@
+# 📦 Load Required Libraries
+library(randomForest)
+library(ggplot2)
+
+# 📥 Load the Data
+data <- read.csv("melb_data.csv", stringsAsFactors = FALSE)
+
+# 📊 Inspect and Clean
+data$Type <- as.factor(data$Type)
+data$Regionname <- as.factor(data$Regionname)
+data <- na.omit(data)  # remove rows with missing values
+
+# 🎯 Train/Test Split
+set.seed(123)
+split_index <- sample(1:nrow(data), 0.8 * nrow(data))
+train <- data[split_index, ]
+test <- data[-split_index, ]
+
+# 🏗 Train Random Forest Model
+rf_model <- randomForest(
+  Price ~ Landsize + YearBuilt + Rooms + Type + Regionname,
+  data = train,
+  ntree = 100,
+  importance = TRUE
+)
+
+# 🔍 Evaluate Model using MAE
+test$Type <- factor(test$Type, levels = levels(train$Type))
+test$Regionname <- factor(test$Regionname, levels = levels(train$Regionname))
+rf_predictions <- predict(rf_model, newdata = test)
+mae <- mean(abs(rf_predictions - test$Price))
+print(paste("Random Forest MAE:", round(mae, 2)))
+
+# 📈 Plot Variable Importance
+importance_df <- as.data.frame(importance(rf_model))
+importance_df$Feature <- rownames(importance_df)
+
+ggplot(importance_df, aes(x = reorder(Feature, IncNodePurity), y = IncNodePurity)) +
+  geom_bar(stat = "identity", fill = "#0073C2FF") +
+  coord_flip() +
+  labs(title = "Feature Importance (Random Forest)",
+       x = "Feature",
+       y = "Importance (IncNodePurity)") +
+  theme_minimal()
